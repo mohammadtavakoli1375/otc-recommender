@@ -29,6 +29,9 @@ async function bootstrapServer() {
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
   });
 
+  // Debug ping route
+  expressApp.get('/__ping', (_req, res) => res.status(200).send('ok'));
+
   await app.init();
   
   return serverless(expressApp, {

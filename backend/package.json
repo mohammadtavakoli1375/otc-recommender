@@ -6,7 +6,7 @@
   "private": true,
   "license": "UNLICENSED",
   "scripts": {
-    "build": "nest build",
+    "build": "tsc -p tsconfig.build.json",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "nest start",
     "start:dev": "nest start --watch",
@@ -25,7 +25,8 @@
     "db:seed": "ts-node prisma/seed.ts",
     "db:migrate-data": "ts-node scripts/migrate-sqlite-to-postgres.ts",
     "db:backup": "ts-node scripts/backup-database.ts",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "vercel-build": "prisma migrate deploy && tsc -p tsconfig.json"
   },
   "dependencies": {
     "@nestjs/axios": "^4.0.1",
