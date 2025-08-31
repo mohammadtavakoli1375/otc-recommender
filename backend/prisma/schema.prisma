@@ -1,0 +1,580 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model Symptom {
+  id      String   @id @default(cuid())
+  code    String   @unique
+  name_fa String
+  name_en String
+  tags    String?  // JSON string for tags
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@map("symptoms")
+}
+
+model Condition {
+  id           String @id @default(cuid())
+  slug         String @unique
+  title_fa     String
+  title_en     String
+  education_md String?
+  
+  protocols Protocol[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([slug])
+  @@map("conditions")
+}
+
+model Ingredient {
+  id       String  @id @default(cuid())
+  name     String  @unique
+  atc      String?
+  rxnorm   String?
+  otc_bool Boolean @default(true)
+  
+  recommendations Recommendation[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@map("ingredients")
+}
+
+model Protocol {
+  id           String    @id @default(cuid())
+  condition_id String
+  version      Int       @default(1)
+  rules_jsonb  Json
+  created_by   String
+  published_at DateTime?
+  
+  condition       Condition        @relation(fields: [condition_id], references: [id], onDelete: Cascade)
+  recommendations Recommendation[]
+  creator         User             @relation(fields: [created_by], references: [id])
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@unique([condition_id, version])
+  @@index([condition_id, version])
+  @@map("protocols")
+}
+
+model Recommendation {
+  id            String  @id @default(cuid())
+  protocol_id   String
+  ingredient_id String
+  age_min       Int?
+  age_max       Int?
+  max_days      Int?
+  dose_note     String?
+  rationale_md  String?
+  
+  protocol   Protocol   @relation(fields: [protocol_id], references: [id], onDelete: Cascade)
+  ingredient Ingredient @relation(fields: [ingredient_id], references: [id], onDelete: Cascade)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@map("recommendations")
+}
+
+enum UserRole {
+  PHARMACIST
+  ADMIN
+  VIEWER
+}
+
+model User {
+  id       String   @id @default(cuid())
+  email    String   @unique
+  password String?
+  role     UserRole @default(VIEWER)
+  phone    String?
+  phone_verified Boolean @default(false)
+  notification_preferences String? // JSON: {push: boolean, sms: boolean, email: boolean}
+  
+  protocols Protocol[]
+  doseCalculations DoseCalculation[]
+  patientProfile PatientProfile?
+  pushSubscriptions PushSubscription[]
+  reminderDeliveries ReminderDelivery[]
+  medications Medication[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([email])
+  @@index([role])
+  @@index([phone])
+  @@index([createdAt])
+  @@map("users")
+}
+
+enum AgeGroup {
+  INFANT    // 0-2 سال
+  CHILD     // 2-12 سال  
+  ADULT     // 12+ سال
+}
+
+model Drug {
+  id              String  @id @default(cuid())
+  name_fa         String
+  name_en         String
+  generic_name    String  @unique
+  brand_names     String? // JSON array of brand names
+  atc_code        String?
+  
+  // Dose calculation parameters
+  infant_dose_mg_kg    Float?  // mg/kg for infants (0-2 years)
+  child_dose_mg_kg     Float?  // mg/kg for children (2-12 years)
+  adult_dose_mg        Float?  // Fixed dose for adults
+  
+  // Safety limits
+  max_single_dose_mg   Float?
+  max_daily_dose_mg    Float?
+  min_age_months       Int?    // Minimum age in months
+  max_age_years        Int?    // Maximum age in years
+  
+  // Additional info
+  contraindications    String? // JSON array
+  drug_interactions    String? // JSON array
+  warnings            String? // JSON array
+  
+  // Dosing intervals
+  dosing_interval_hours Int @default(8) // Every 8 hours by default
+  max_doses_per_day    Int @default(3)  // Max 3 doses per day
+  
+  doseCalculations DoseCalculation[]
+  medicationHistory MedicationHistory[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([generic_name])
+  @@index([name_fa])
+  @@index([atc_code])
+  @@index([createdAt])
+  @@map("drugs")
+}
+
+model DoseCalculation {
+  id              String    @id @default(cuid())
+  drug_id         String
+  user_id         String?
+  
+  // Patient info
+  patient_age_years    Float
+  patient_age_months   Int
+  patient_weight_kg    Float
+  age_group           AgeGroup
+  
+  // Calculated results
+  calculated_dose_mg   Float
+  calculated_dose_ml   Float?
+  doses_per_day       Int
+  total_daily_dose_mg Float
+  
+  // Safety checks
+  is_safe             Boolean @default(true)
+  safety_warnings     String? // JSON array of warnings
+  
+  // Metadata
+  calculation_notes   String?
+  calculated_by       String? // IP or user identifier
+  
+  drug Drug @relation(fields: [drug_id], references: [id], onDelete: Cascade)
+  user User? @relation(fields: [user_id], references: [id], onDelete: SetNull)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([drug_id])
+  @@index([user_id])
+  @@index([createdAt])
+  @@map("dose_calculations")
+}
+
+// Patient Profile Models
+model PatientProfile {
+  id              String    @id @default(cuid())
+  user_id         String    @unique
+  
+  // Basic Information
+  first_name      String
+  last_name       String
+  date_of_birth   DateTime
+  gender          Gender
+  weight_kg       Float
+  height_cm       Float?
+  
+  // Contact Information
+  phone           String?
+  emergency_contact String?
+  
+  // Medical Information
+  blood_type      String?
+  allergies       String?   // JSON array
+  
+  // Relations
+  user            User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  medicalHistory  MedicalHistory[]
+  medicationHistory MedicationHistory[]
+  reminders       Reminder[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([user_id])
+  @@map("patient_profiles")
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+model MedicalHistory {
+  id                String    @id @default(cuid())
+  patient_profile_id String
+  
+  condition_name    String
+  condition_type    MedicalConditionType
+  diagnosed_date    DateTime?
+  is_chronic        Boolean   @default(false)
+  is_active         Boolean   @default(true)
+  notes            String?
+  
+  patientProfile   PatientProfile @relation(fields: [patient_profile_id], references: [id], onDelete: Cascade)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([patient_profile_id])
+  @@map("medical_history")
+}
+
+enum MedicalConditionType {
+  DIABETES
+  HYPERTENSION
+  KIDNEY_DISEASE
+  LIVER_DISEASE
+  HEART_DISEASE
+  ASTHMA
+  ALLERGY
+  PREGNANCY
+  BREASTFEEDING
+  OTHER
+}
+
+model MedicationHistory {
+  id                String    @id @default(cuid())
+  patient_profile_id String
+  drug_id           String?
+  
+  medication_name   String
+  dosage           String
+  frequency        String
+  start_date       DateTime
+  end_date         DateTime?
+  is_current       Boolean   @default(true)
+  prescribed_by    String?
+  notes           String?
+  
+  patientProfile   PatientProfile @relation(fields: [patient_profile_id], references: [id], onDelete: Cascade)
+  drug            Drug?     @relation(fields: [drug_id], references: [id], onDelete: SetNull)
+  reminders       Reminder[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([patient_profile_id])
+  @@index([drug_id])
+  @@map("medication_history")
+}
+
+model Reminder {
+  id                String    @id @default(cuid())
+  patient_profile_id String
+  medication_history_id String?
+  
+  title            String
+  description      String?
+  medication_name  String
+  dosage          String
+  
+  // Scheduling
+  start_date      DateTime
+  end_date        DateTime?
+  frequency_type  FrequencyType
+  frequency_value Int       // e.g., every 8 hours = 8
+  times_per_day   Int       @default(1)
+  specific_times  String?   // JSON array of times like ["08:00", "16:00", "24:00"]
+  
+  // Notification settings
+  is_active       Boolean   @default(true)
+  notification_enabled Boolean @default(true)
+  
+  patientProfile     PatientProfile    @relation(fields: [patient_profile_id], references: [id], onDelete: Cascade)
+  medicationHistory  MedicationHistory? @relation(fields: [medication_history_id], references: [id], onDelete: SetNull)
+  deliveries         ReminderDelivery[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([patient_profile_id])
+  @@index([start_date])
+  @@map("reminders")
+}
+
+enum DeliveryChannel {
+  PUSH
+  SMS
+  EMAIL
+}
+
+enum DeliveryStatus {
+  SCHEDULED
+  SENT
+  FAILED
+  RETRY
+}
+
+model ReminderDelivery {
+  id          String @id @default(cuid())
+  reminder_id String
+  user_id     String
+  channel     DeliveryChannel
+  status      DeliveryStatus @default(SCHEDULED)
+  scheduled_at DateTime
+  sent_at     DateTime?
+  failed_at   DateTime?
+  error_message String?
+  retry_count Int @default(0)
+  max_retries Int @default(3)
+  
+  // Message content
+  title       String
+  body        String
+  
+  // Channel specific data
+  push_subscription_id String?
+  phone_number String?
+  email_address String?
+  
+  reminder Reminder @relation(fields: [reminder_id], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  pushSubscription PushSubscription? @relation(fields: [push_subscription_id], references: [id], onDelete: SetNull)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([reminder_id])
+  @@index([user_id])
+  @@index([channel])
+  @@index([status])
+  @@index([scheduled_at])
+  @@map("reminder_deliveries")
+}
+
+enum FrequencyType {
+  HOURLY
+  DAILY
+  WEEKLY
+  MONTHLY
+  AS_NEEDED
+}
+
+model PushSubscription {
+  id       String @id @default(cuid())
+  user_id  String
+  endpoint String
+  p256dh   String
+  auth     String
+  user_agent String?
+  is_active Boolean @default(true)
+  
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  deliveries ReminderDelivery[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@unique([user_id, endpoint])
+  @@index([user_id])
+  @@index([is_active])
+  @@map("push_subscriptions")
+}
+
+model FAQ {
+  id          String      @id @default(cuid())
+  
+  question_fa String
+  question_en String?
+  answer_fa   String
+  answer_en   String?
+  category    FAQCategory
+  
+  // SEO and organization
+  slug        String      @unique
+  tags        String?     // JSON array
+  is_featured Boolean     @default(false)
+  view_count  Int         @default(0)
+  
+  // Content management
+  is_published Boolean    @default(true)
+  published_by String?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([category])
+  @@index([is_published])
+  @@map("faqs")
+}
+
+enum FAQCategory {
+  GENERAL
+  DOSAGE
+  SAFETY
+  SIDE_EFFECTS
+  DRUG_INTERACTIONS
+  PREGNANCY
+  CHILDREN
+  ELDERLY
+  CHRONIC_CONDITIONS
+  EMERGENCY
+}
+
+model EducationalContent {
+  id          String      @id @default(cuid())
+  
+  title_fa    String
+  title_en    String?
+  content_fa  String      // Markdown content
+  content_en  String?     // Markdown content
+  summary_fa  String?
+  summary_en  String?
+  
+  category    ContentCategory
+  type        ContentType
+  
+  // SEO and organization
+  slug        String      @unique
+  tags        String?     // JSON array
+  featured_image String?
+  
+  // Engagement
+  view_count  Int         @default(0)
+  is_featured Boolean     @default(false)
+  
+  // Content management
+  is_published Boolean    @default(true)
+  published_by String?
+  published_at DateTime?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([category])
+  @@index([type])
+  @@index([is_published])
+  @@map("educational_content")
+}
+
+enum ContentCategory {
+  COMMON_DISEASES
+  MEDICATION_SAFETY
+  DRUG_ADMINISTRATION
+  SIDE_EFFECTS
+  DRUG_INTERACTIONS
+  SPECIAL_POPULATIONS
+  EMERGENCY_CARE
+  PREVENTION
+  LIFESTYLE
+}
+
+enum ContentType {
+  ARTICLE
+  GUIDE
+  FAQ
+  VIDEO
+  INFOGRAPHIC
+  CHECKLIST
+}
+
+// Medication Management Models
+model Medication {
+  id        String @id @default(uuid())
+  userId    String
+  drugName  String       // استامینوفن...
+  form      String?      // قرص/شربت/کرم...
+  strength  String?      // 500mg, 5mg/5ml
+  notes     String?      // با غذا، آب زیاد...
+  startAt   DateTime
+  endAt     DateTime?
+  timezone  String @default("Asia/Tehran")
+  
+  user      User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  schedules MedicationSchedule[]
+  adherence MedicationAdherence[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([userId])
+  @@index([startAt])
+  @@map("medications")
+}
+
+model MedicationSchedule {
+  id          String   @id @default(uuid())
+  medicationId String
+  rule        String   // DAILY|WEEKLY|CRON
+  times       Json?    // ["08:00","14:00","20:00"]
+  intervalHrs Int?     // اگر هر N ساعت
+  maxPerDay   Int?     // سقف دفعات
+  quietHours  Json?    // {start:"22:00", end:"07:00"}
+  
+  medication  Medication @relation(fields: [medicationId], references: [id], onDelete: Cascade)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([medicationId])
+  @@map("medication_schedules")
+}
+
+model MedicationAdherence {
+  id           String   @id @default(uuid())
+  medicationId String
+  dueAt        DateTime
+  takenAt      DateTime?
+  status       String   // due|sent|snoozed|taken|missed|skipped
+  channel      String?  // push|sms
+  
+  medication   Medication @relation(fields: [medicationId], references: [id], onDelete: Cascade)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([medicationId])
+  @@index([dueAt])
+  @@index([status])
+  @@map("medication_adherence")
+}

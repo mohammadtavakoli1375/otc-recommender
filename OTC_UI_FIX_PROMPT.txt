@@ -1,0 +1,354 @@
+# پرامپت برای Trae — پاک‌سازی UI و رفع باگ Back/PWA (Next.js + Tailwind + shadcn/ui + PWA)
+
+**Context پروژه:**  
+این ریپو یک مونو‌ریپو با فرانت Next.js (App Router) + Tailwind + shadcn/ui + PWA و بک NestJS است. تمرکز این تسک فقط روی فرانت (Next.js) و Service Worker است.
+
+## اهداف
+1) رفع مشکل «Back» که گاهی به طراحی‌های قدیمی/کش‌شده برمی‌گردد.  
+2) کنترل دقیق کش PWA و اطمینان از لود نسخهٔ جدید UI بعد از دیپلوی.  
+3) تمیزتر و یکپارچه‌تر کردن UI (Design Tokens، Buttons، Bottom Navigation، Skeleton/Empty States).  
+4) اضافه‌کردن سناریوهای QA برای رگرسیون.
+
+---
+
+## قوانین کلی اجرا
+- از **App Router** استفاده کن (فرض مسیر: `frontend/` برای فرانت).  
+- اگر فایل/دایرکتوری‌ای وجود ندارد، بساز. اگر هست، **Minimally invasive** و Backward-compatible اصلاح کن.  
+- همهٔ تغییرها را با کامیت‌های کوچک و پیام‌های واضح انجام بده.
+
+---
+
+## 1) کنترل Service Worker و کش PWA
+
+### 1.1 ثبت SW فقط در Production
+- فایل جدید `frontend/app/register-sw.ts` اضافه کن با محتوای زیر:
+```ts
+// frontend/app/register-sw.ts
+if (typeof window !== "undefined") {
+  if (process.env.NODE_ENV === "production" && "serviceWorker" in navigator) {
+    navigator.serviceWorker.register("/sw.js");
+  } else if ("serviceWorker" in navigator) {
+    // Dev: همیشه SWهای قبلی را از ثبت خارج کن
+    navigator.serviceWorker.getRegistrations().then(regs => regs.forEach(r => r.unregister()));
+  }
+}
+```
+- در `frontend/app/layout.tsx` بعد از body، این فایل را lazy-import کن:
+```tsx
+// frontend/app/layout.tsx (snippet)
+if (typeof window !== "undefined") {
+  import("./register-sw");
+}
+```
+
+### 1.2 نسخه‌گذاری کش و فعال‌سازی فوری SW
+- فایل/اسکریپت SW را در `frontend/public/sw.js` بساز/به‌روز کن. موارد الزامی:
+  - `skipWaiting()` و `clientsClaim()`  
+  - VERSION برای bust کردن کش بعد از دیپلوی  
+  - **network-first برای navigation** (صفحات) تا نسخهٔ قدیمی رندر نشود
+
+نمونهٔ حداقلی:
+```js
+// frontend/public/sw.js
+/* global self, caches */
+self.skipWaiting();
+self.clientsClaim();
+
+const VERSION = "v2025-08-29-01"; // هر دیپلوی افزایش بده
+const STATIC_CACHE = `static-${VERSION}`;
+
+self.addEventListener("install", (event) => {
+  event.waitUntil((async () => {
+    const cache = await caches.open(STATIC_CACHE);
+    await cache.addAll([
+      "/",            // optional
+      "/offline.html" // اختیاری: اگر داری
+    ]);
+  })());
+});
+
+self.addEventListener("activate", (event) => {
+  event.waitUntil((async () => {
+    const keys = await caches.keys();
+    await Promise.all(keys.filter(k => !k.includes(VERSION)).map(k => caches.delete(k)));
+  })());
+});
+
+self.addEventListener("fetch", (event) => {
+  const { request } = event;
+  // Navigation requests → network-first
+  if (request.mode === "navigate") {
+    event.respondWith((async () => {
+      try {
+        const fresh = await fetch(request);
+        return fresh;
+      } catch {
+        const cache = await caches.open(STATIC_CACHE);
+        const offline = await cache.match("/offline.html");
+        return offline || new Response("Offline", { status: 503 });
+      }
+    })());
+    return;
+  }
+  // سایر درخواست‌ها: cache-first با fallback به شبکه (دلخواه)
+  event.respondWith((async () => {
+    const cached = await caches.match(request);
+    if (cached) return cached;
+    try {
+      const fresh = await fetch(request);
+      return fresh;
+    } catch {
+      return cached || new Response("Network error", { status: 408 });
+    }
+  })());
+});
+```
+
+---
+
+## 2) اصلاح رفتار دکمه‌های Back
+
+### 2.1 جست‌وجو و جایگزینی امن
+- کل کد فرانت را برای `history.back()` و `useRouter().back()` جست‌وجو کن.  
+- هر جا back استفاده شده، به یکی از این دو الگو تبدیل کن:
+
+الف) **لینک صریح** به مسیر مشخص (ترجیحی):
+```tsx
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+
+export function BackToHome() {
+  return (
+    <Link href="/">
+      <Button variant="outline" size="sm">بازگشت</Button>
+    </Link>
+  );
+}
+```
+
+ب) **Back با fallback**:
+```tsx
+"use client";
+import { useRouter } from "next/navigation";
+
+export function SmartBackButton() {
+  const router = useRouter();
+  const handleBack = () => {
+    if (typeof window !== "undefined" && window.history.length > 1) router.back();
+    else router.push("/");
+  };
+  return <button onClick={handleBack}>بازگشت</button>;
+}
+```
+
+---
+
+## 3) استانداردسازی UI با Tailwind + shadcn/ui
+
+### 3.1 Design Tokens (Tailwind)
+- در `frontend/tailwind.config.ts`، `extend` را با پالت و spacing زیر به‌روزرسانی کن (merge کن، override نکن):
+```ts
+// frontend/tailwind.config.ts (extend snippet)
+extend: {
+  colors: {
+    brand: {
+      DEFAULT: "#2563EB",
+      50: "#eef5ff",
+      100: "#d9e7ff",
+      200: "#b3cfff",
+      300: "#85b2ff",
+      400: "#5793ff",
+      500: "#2563EB",
+      600: "#1e4fc4",
+      700: "#173e9e",
+      800: "#112f79",
+      900: "#0b2054",
+    },
+    text: {
+      primary: "hsl(222 47% 11%)",
+      secondary: "hsl(215 16% 47%)",
+      muted: "hsl(214 32% 91%)"
+    }
+  },
+  borderRadius: {
+    lg: "16px",
+    xl: "20px",
+    "2xl": "24px"
+  },
+  spacing: {
+    1: "4px",
+    2: "8px",
+    3: "12px",
+    4: "16px",
+    5: "20px",
+    6: "24px",
+    7: "28px",
+    8: "32px"
+  }
+}
+```
+
+### 3.2 یکدست‌سازی دکمه shadcn/ui
+- در `frontend/components/ui/button.tsx` variants را به شکل زیر به‌روزرسانی کن (در صورت وجود، merge):
+```ts
+// frontend/components/ui/button.tsx
+import { cva, type VariantProps } from "class-variance-authority";
+import { cn } from "@/lib/utils";
+import * as React from "react";
+
+const buttonVariants = cva(
+  "inline-flex items-center justify-center whitespace-nowrap rounded-xl text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none",
+  {
+    variants: {
+      variant: {
+        default: "bg-brand text-white hover:opacity-90",
+        outline: "border border-gray-200 hover:bg-gray-50",
+        ghost: "hover:bg-gray-50",
+      },
+      size: {
+        sm: "h-9 px-3",
+        md: "h-10 px-4",
+        lg: "h-12 px-5 text-base rounded-2xl"
+      }
+    },
+    defaultVariants: {
+      variant: "default",
+      size: "lg"
+    }
+  }
+);
+
+export interface ButtonProps
+  extends React.ButtonHTMLAttributes<HTMLButtonElement>,
+    VariantProps<typeof buttonVariants> {}
+
+export function Button({ className, variant, size, ...props }: ButtonProps) {
+  return <button className={cn(buttonVariants({ variant, size }), className)} {...props} />;
+}
+```
+
+### 3.3 Layout موبایل‌اول یکسان
+- در `frontend/app/layout.tsx`، container پیش‌فرض را تمیز کن:
+```tsx
+// frontend/app/layout.tsx (container snippet)
+<body className="bg-white text-text-primary antialiased">
+  <div className="mx-auto max-w-screen-sm px-4 py-4">{children}</div>
+</body>
+```
+
+### 3.4 Bottom Navigation مینیمال
+- فایل `frontend/components/navigation/BottomNavigation.tsx` را ایجاد/به‌روزرسانی کن:
+```tsx
+"use client";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+
+const items = [
+  { href: "/", label: "خانه" },
+  { href: "/symptoms", label: "علائم" },
+  { href: "/dose-calculator", label: "دوز" },
+  { href: "/education", label: "آموزش" },
+  { href: "/profile", label: "پروفایل" },
+];
+
+export default function BottomNavigation() {
+  const pathname = usePathname();
+  return (
+    <nav className="fixed inset-x-0 bottom-0 z-50 mx-auto mb-3 max-w-screen-sm px-4">
+      <div className="grid grid-cols-5 rounded-2xl border bg-white/90 backdrop-blur px-2 py-2 shadow-lg">
+        {items.map((it) => {
+          const active = pathname === it.href;
+          return (
+            <Link
+              key={it.href}
+              href={it.href}
+              className={`flex flex-col items-center py-1 text-xs ${active ? "text-brand font-semibold" : "text-text-secondary"}`}
+              aria-current={active ? "page" : undefined}
+            >
+              <span className="h-5 w-5 rounded-lg bg-gray-100 mb-1" />
+              {it.label}
+            </Link>
+          );
+        })}
+      </div>
+    </nav>
+  );
+}
+```
+
+### 3.5 Skeleton و Empty States
+- فایل‌های زیر را بساز:
+`frontend/components/ui/skeleton.tsx`
+```tsx
+export function ListSkeleton() {
+  return (
+    <div className="space-y-3" role="status" aria-live="polite">
+      {[...Array(4)].map((_, i) => (
+        <div key={i} className="h-16 rounded-xl bg-gray-100 animate-pulse" />
+      ))}
+    </div>
+  );
+}
+```
+
+`frontend/components/ui/empty-state.tsx`
+```tsx
+export function EmptyState({
+  title = "موردی یافت نشد",
+  desc = "هنوز چیزی اضافه نکرده‌اید."
+}: { title?: string; desc?: string }) {
+  return (
+    <div className="text-center py-12">
+      <div className="mx-auto h-16 w-16 rounded-2xl bg-gray-100 mb-4" />
+      <h3 className="font-semibold mb-1">{title}</h3>
+      <p className="text-text-secondary text-sm">{desc}</p>
+    </div>
+  );
+}
+```
+
+---
+
+## 4) QA و چک‌های نهایی
+
+### 4.1 اسکریپت تست دستی
+- صفحه‌ها را یک‌بار باز و بسته کن؛ بعد از دیپلوی، نسخهٔ جدید UI بدون نیاز به رفرش دستی لود شود (به لطف `skipWaiting`/`clientsClaim` و VERSION).  
+- مسیرهای دارای back به درستی رفتار کنند (اگر history کوتاه است → fallback به `/`).  
+- روی Android Chrome + iOS Safari تست دستی بگیر.
+
+### 4.2 بهبود DX
+- یک دستور npm برای bump کردن VERSION در `public/sw.js` اضافه کن (اختیاری):
+  - مثال در `frontend/package.json`:
+```json
+{
+  "scripts": {
+    "pwa:bump": "node -e \"const fs=require('fs');let t=fs.readFileSync('public/sw.js','utf8');t=t.replace(/v\\d{4}-\\d{2}-\\d{2}-\\d{2}/,`v${new Date().toISOString().slice(0,10).replace(/-/g,'-')}-01`);fs.writeFileSync('public/sw.js',t);console.log('SW VERSION bumped')\""
+  }
+}
+```
+
+---
+
+## خروجی و تحویل
+- همه فایل‌های ایجاد/اصلاح‌شده را لیست کن.  
+- تست اجرا کن (build dev/prod) و گزارش مختصر بده.  
+- یک README کوتاه در `frontend/docs/DEPLOY_NOTES_PWA.md` بنویس که توضیح دهد:  
+  - چطور SW در Dev غیرفعال و در Prod فعال می‌شود  
+  - چطور VERSION را هنگام دیپلوی افزایش دهیم  
+  - الگوی Back با fallback
+
+## پیام‌های کامیت پیشنهادی
+1) `fix(pwa): register SW only in prod; force unregister in dev`  
+2) `feat(pwa): versioned caches + skipWaiting/clientsClaim + navigation network-first`  
+3) `refactor(nav): safe back behavior with explicit links/fallback`  
+4) `chore(ui): add Tailwind design tokens (brand colors, spacing, radius)`  
+5) `feat(ui): unify shadcn Button variants & sizes`  
+6) `feat(ui): bottom navigation minimal & consistent`  
+7) `feat(ui): skeleton and empty-state components`  
+8) `docs(pwa): add DEPLOY_NOTES_PWA`
+
+---
+
+## نهایی
+در پایان همه فایل‌ها و ماژول‌ها را lint و build کن.  
+**اگر خطا یا ناسازگاری وجود داشت، آن را رفع کن و خروجی تمیز نهایی تحویل بده.**

@@ -1,0 +1,127 @@
+## پرامپت جامع برای Trae — وب‌اپ «پیشنهاد OTC بر پایه علائم»
+
+**هدف:** ساخت یک وب‌اپ ریسپانسیو، ایمن و علمی برای پیشنهاد داروهای OTC بر اساس علائم سرپایی با موتور قوانین نسخه‌دار و پنل ادمین.
+
+### 1) معماری کلان (بساز)
+- **Front-end:** Next.js 14 (App Router) + TypeScript، TailwindCSS، shadcn/ui، next-intl (FA/EN، RTL)، react-hook-form + Zod، PWA.
+- **Back-end:** NestJS (TS)، PostgreSQL + Prisma، Redis برای کش، موتور قواعد JSON (JSONLogic یا DSL سفارشی)، class-validator.
+- **DevOps:** GitHub Actions (lint/test/build/deploy)، Sentry، OpenTelemetry، OWASP Helmet + rate-limit + CORS.
+- **دیپلوی:** فرانت روی Vercel؛ بک‌اند و DB روی Render/Railway/Neon. Healthcheck و CI/CD را فعال کن.
+
+### 2) سایت‌مپ (ایجاد صفحات و روت‌ها)
+- `/` معرفی + CTA «شروع ارزیابی»
+- `/symptoms` ویزارد چندمرحله‌ای علائم
+- `/results` نمایش پیشنهادها، هشدارها، Print/Copy/PDF
+- `/drug/[ingredient]` دوز/هشدار/حداکثر روز مجاز OTC
+- `/learn/[condition]` محتوای آموزشی Markdown از پروتکل
+- `/interactions` (رزرو برای فاز بعد)
+- `/legal` حریم‌خصوصی + سلب‌مسئولیت
+- `/auth/login` ورود (OTP ایمیل) — در MVP می‌تواند غیرفعال باشد
+- `/admin` (محافظت‌شده):
+  - `/admin/overview`
+  - `/admin/protocols` (CRUD + ورژن + انتشار/rollback)
+  - `/admin/ingredients` (CRUD + ATC/RxNorm)
+  - `/admin/symptoms` (CRUD)
+  - `/admin/conditions` (CRUD)
+  - `/admin/releases` (نسخه‌ها)
+  - `/admin/users` (نقش‌ها)
+- `/status` سلامت سرویس
+- `/*` صفحه ۴۰۴ سفارشی
+
+### 3) مدل داده (Prisma schema بساز)
+- `symptom(id, code, name_fa, name_en, tags String[])`
+- `condition(id, slug, title_fa, title_en, education_md)`
+- `ingredient(id, name, atc, rxnorm, otc_bool)`
+- `protocol(id, condition_id, version, rules_jsonb, created_by, published_at)`
+- `recommendation(id, protocol_id, ingredient_id, age_min, age_max, max_days, dose_note, rationale_md)`
+- `user(id, email, role)` با نقش‌ها: `pharmacist|admin|viewer`
+- ایندکس‌های لازم روی `condition.slug`, `protocol(condition_id, version)`
+
+### 4) موتور قوانین (DSL/JSON) – پیاده‌سازی و نمونه Seed
+- پشتیبانی از:
+  - `triage` (ارجاع فوری)
+  - `hardBlocks` (منع قطعی)
+  - `softBlocks` (اجتناب/احتیاط با علت)
+  - `suggest` (فهرست پیشنهادها با دلیل و سقف روز)
+  - `notes` (آموزش/خودمراقبتی)
+- ورودی موتور:
+  ```json
+  {
+    "patient": { "age": 34, "sex": "F", "pregnantWeeks": 0, "isElder": false, "meds": [] },
+    "symptoms": ["sore_throat","fever_low"],
+    "durationDays": 2,
+    "redFlags": { "airway": false, "bloodyDiarrhea": false }
+  }
+  ```
+- خروجی موتور:
+  ```json
+  {
+    "action": "OK|REFER_IMMEDIATE",
+    "blocks": [{ "ingredient": "ibuprofen", "reason": "pregnancy>=20w" }],
+    "avoid": [{ "ingredient": "diphenhydramine", "reason": "Beers>=65" }],
+    "suggestions": [
+      { "ingredient": "acetaminophen", "dose": "500 mg q6-8h, max 3g/day", "maxDays": 3, "why": "pain/fever" }
+    ],
+    "education": ["مایعات کافی", "استراحت"],
+    "sources": ["NICE CKS Sore Throat", "FDA safety notices ..."]
+  }
+  ```
+
+### 5) API (NestJS) — روت‌ها را بساز
+- `POST /api/triage` → اجرای موتور قوانین و بازگرداندن خروجی بالا.
+- `GET /api/ingredients`
+- `GET /api/protocols/:condition` (آخرین نسخه منتشرشده)
+- `POST /api/admin/protocols` (Draft) + `POST /api/admin/publish/:id` (Publish + Cache)
+- ورود OTP (در صورت فعال‌سازی): `POST /api/auth/request-otp` و `POST /api/auth/verify-otp`
+
+### 6) فرانت (Next.js) — الزامات UI/UX را اعمال کن
+- ویزارد ۳–۵ مرحله‌ای با Stepper: سن/وزن/بارداری/داروها/علائم/مدت.  
+- فرم‌ها با react-hook-form + Zod (هم سمت کلاینت هم سمت سرور).  
+- کارت نتایج: **مادهٔ مؤثره (نه برند)**، دوز، حداکثر روز مجاز، «بپرهیزید اگر…»، دکمه‌های Copy و Print PDF، لینک «مشاهده منابع».  
+- RTL کامل، دسترس‌پذیری **WCAG 2.2 AA** (فوکوس‌استایل، ARIA)، فونت فارسی (Vazirmatn).  
+- صفحه `/admin` با جداول shadcn/ui، ویرایش Markdown، پیش‌نمایش، نسخه‌گذاری و انتشار.
+
+### 7) امنیت، حریم خصوصی، پیام‌های ثابت (نمایش/اجرا کن)
+- Helmet، rate-limit، CORS امن، فقط HTTPS. لاگ بدون PII.  
+- **Disclaimer ثابت:** «این اپ آموزشی است و جایگزین تشخیص/درمان پزشک نیست».  
+- پیام ثابت کودکان: «داروهای سرفه/سرماخوردگی خوراکی برای <۶ سال توصیه نمی‌شوند؛ <۴ سال ممنوع مگر دستور پزشک».  
+- پیام ثابت بارداری ≥۲۰ هفته: «NSAID ها توصیه نمی‌شوند؛ از استامینوفن استفاده کنید مگر منع پزشکی».  
+- نگارش **Terms/Privacy** پایه در `/legal`.
+
+### 8) PWA و کیفیت
+- PWA (manifest + service worker) برای استفاده آفلاین ویزارد.  
+- آنالیتیکس رویدادی سبک (بدون PII) برای مسیر علائم→نتیجه.  
+- Sentry و OpenTelemetry را وصل کن.
+
+### 9) تست و CI/CD
+- **Unit (Jest):** تست ماتریسی موتور قوانین (سن/بارداری/سالمند/کودک).  
+- **API (Supertest):** `POST /api/triage` سناریوهای OK/REFER/BLOCK.  
+- **E2E (Playwright):** ویزارد تا نتایج و چاپ PDF.  
+- Accessibility با axe-core.  
+- GitHub Actions: lint (ESLint), type-check, test, build, deploy.
+
+### 10) تنظیمات و Env (ایجاد و مستندسازی)
+- فرانت:  
+  - `NEXT_PUBLIC_API_BASE_URL`  
+  - `NEXT_PUBLIC_APP_NAME=OTC Advisor`  
+- بک‌اند:  
+  - `DATABASE_URL` (Postgres)  
+  - `REDIS_URL`  
+  - `JWT_SECRET` یا کلید OTP (در صورت نیاز)  
+  - `NODE_ENV`  
+- اسکریپت‌های `prisma migrate` و Seed نمونه (۴ پروتکل بالا) را اضافه کن.
+
+### 11) پذیرش (Acceptance Criteria)
+- مسیر `/symptoms → /results` در دسکتاپ و موبایل بدون خطای کنسول.  
+- `POST /api/triage` طبق قرارداد پاسخ دهد و hard/soft blockها را اعمال کند.  
+- `/admin/protocols` امکان ایجاد Draft، ذخیره `rules_jsonb`، Publish و Rollback داشته باشد.  
+- چاپ PDF نتایج کار کند.  
+- PageSpeed موبایل LCP < 3s در شبکه 4G شبیه‌سازی‌شده.  
+- بدون نقض اصلی axe-core.
+
+### 12) افزودنی‌ها (Optional ولی توصیه‌شده) — اجرا کن
+- **Branding سبک:** لوگو، پالت رنگ، favicon.  
+- **جدول‌های دوزینگ دقیق اطفال:** (استامینوفن/ایبوپروفن بر اساس وزن kg).  
+- **Backup & Retention:** بکاپ روزانه دیتابیس، نگه‌داری ۷–۱۴ روز.  
+- **Monitoring Uptime:** ثبت سرویس در UptimeRobot یا معادل.  
+- **Support Email** و صفحهٔ `changelog` برای نسخه‌ها و تاریخچه انتشار.

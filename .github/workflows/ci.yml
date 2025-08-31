@@ -1,0 +1,214 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  # Backend Tests
+  backend-test:
+    runs-on: ubuntu-latest
+    
+    defaults:
+      run:
+        working-directory: ./backend
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: backend/package-lock.json
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Generate Prisma Client
+      run: npx prisma generate
+    
+    - name: Run Prisma migrations
+      run: npx prisma migrate deploy
+      env:
+        DATABASE_URL: "file:./test.db"
+    
+    - name: Run ESLint
+      run: npm run lint
+    
+    - name: Run type check
+      run: npm run build
+    
+    - name: Run unit tests
+      run: npm run test
+    
+    - name: Run e2e tests
+      run: npm run test:e2e
+      env:
+        DATABASE_URL: "file:./test.db"
+
+  # Frontend Tests
+  frontend-test:
+    runs-on: ubuntu-latest
+    
+    defaults:
+      run:
+        working-directory: ./frontend
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Run ESLint
+      run: npm run lint
+    
+    - name: Run type check
+      run: npm run build
+    
+    - name: Run unit tests
+      run: npm run test
+      if: false # Skip for now as we haven't set up frontend tests
+
+  # Security Audit
+  security-audit:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+    
+    - name: Audit Backend Dependencies
+      run: |
+        cd backend
+        npm audit --audit-level=high
+    
+    - name: Audit Frontend Dependencies
+      run: |
+        cd frontend
+        npm audit --audit-level=high
+
+  # Accessibility Tests
+  accessibility-test:
+    runs-on: ubuntu-latest
+    
+    defaults:
+      run:
+        working-directory: ./frontend
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Build application
+      run: npm run build
+    
+    - name: Install Playwright
+      run: npx playwright install --with-deps
+      if: false # Skip for now
+    
+    - name: Run accessibility tests
+      run: npx playwright test --grep="accessibility"
+      if: false # Skip for now
+
+  # Deploy to Staging
+  deploy-staging:
+    needs: [backend-test, frontend-test, security-audit]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/develop'
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Deploy to Staging
+      run: |
+        echo "Deploying to staging environment..."
+        # Add actual deployment commands here
+        # e.g., deploy to Render, Railway, or other staging environment
+
+  # Deploy to Production
+  deploy-production:
+    needs: [backend-test, frontend-test, security-audit]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Deploy Frontend to Vercel
+      run: |
+        echo "Deploying frontend to Vercel..."
+        # Add Vercel deployment commands
+        # npx vercel --prod --token ${{ secrets.VERCEL_TOKEN }}
+    
+    - name: Deploy Backend to Production
+      run: |
+        echo "Deploying backend to production..."
+        # Add backend deployment commands
+        # e.g., deploy to Render, Railway, or other production environment
+
+  # Performance Tests
+  performance-test:
+    needs: [backend-test, frontend-test]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+    
+    - name: Install Lighthouse CI
+      run: npm install -g @lhci/cli@0.12.x
+    
+    - name: Run Lighthouse CI
+      run: |
+        echo "Running Lighthouse performance tests..."
+        # lhci autorun
+      if: false # Skip for now
+
+  # Notification
+  notify:
+    needs: [backend-test, frontend-test, security-audit]
+    runs-on: ubuntu-latest
+    if: always()
+    
+    steps:
+    - name: Notify on Success
+      if: success()
+      run: |
+        echo "✅ All tests passed successfully!"
+        # Add notification logic (Slack, Discord, etc.)
+    
+    - name: Notify on Failure
+      if: failure()
+      run: |
+        echo "❌ Some tests failed. Please check the logs."
+        # Add notification logic (Slack, Discord, etc.)
