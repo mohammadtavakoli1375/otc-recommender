@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
-import { BullModule } from '@nestjs/bull';
+// import { BullModule } from '@nestjs/bull';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { TriageModule } from './triage/triage.module';
@@ -28,18 +28,18 @@ import { PrismaService } from './prisma/prisma.service';
         limit: 100,
       },
     ]),
-    BullModule.forRootAsync({
-      imports: [ConfigModule],
-      useFactory: async (configService: ConfigService) => ({
-        redis: {
-          host: configService.get('REDIS_HOST', 'localhost'),
-          port: configService.get('REDIS_PORT', 6379),
-          password: configService.get('REDIS_PASSWORD'),
-          db: configService.get('REDIS_DB', 0),
-        },
-      }),
-      inject: [ConfigService],
-    }),
+    // BullModule.forRootAsync({
+    //   imports: [ConfigModule],
+    //   useFactory: async (configService: ConfigService) => ({
+    //     redis: {
+    //       host: configService.get('REDIS_HOST', 'localhost'),
+    //       port: configService.get('REDIS_PORT', 6379),
+    //       password: configService.get('REDIS_PASSWORD'),
+    //       db: configService.get('REDIS_DB', 0),
+    //     },
+    //   }),
+    //   inject: [ConfigService],
+    // }),
     TriageModule,
     AdminModule,
     DoseCalculatorModule,

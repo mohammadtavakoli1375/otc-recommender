@@ -4,8 +4,8 @@ import { CreateMedicationDto } from './dto/create-medication.dto';
 import { UpdateMedicationDto } from './dto/update-medication.dto';
 import { MarkMedicationDto } from './dto/mark-medication.dto';
 import { MedicationSafetyService } from './medication-safety.service';
-import type { Queue } from 'bull';
-import { InjectQueue } from '@nestjs/bull';
+// import type { Queue } from 'bull';
+// import { InjectQueue } from '@nestjs/bull';
 
 @Injectable()
 export class MedicationsService {

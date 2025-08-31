@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { BullModule } from '@nestjs/bull';
+// import { BullModule } from '@nestjs/bull';
 import { ConfigModule } from '@nestjs/config';
 import { NotificationsController } from './notifications.controller';
 import { NotificationsService } from './notifications.service';
@@ -12,9 +12,9 @@ import { PrismaModule } from '../prisma/prisma.module';
   imports: [
     ConfigModule,
     PrismaModule,
-    BullModule.registerQueue({
-      name: 'notifications',
-    }),
+    // BullModule.registerQueue({
+    //   name: 'notifications',
+    // }),
   ],
   controllers: [NotificationsController],
   providers: [

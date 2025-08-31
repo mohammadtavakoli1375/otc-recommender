@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { InjectQueue } from '@nestjs/bull';
-import type { Queue } from 'bull';
+// import { InjectQueue } from '@nestjs/bull';
+// import type { Queue } from 'bull';
 import { PrismaService } from '../prisma/prisma.service';
 import { WebPushService, PushNotificationPayload } from './web-push.service';
 import { SmsService } from './sms.service';
@@ -37,7 +37,7 @@ export class NotificationsService {
     private readonly prisma: PrismaService,
     private readonly webPushService: WebPushService,
     private readonly smsService: SmsService,
-    @InjectQueue('notifications') private readonly notificationQueue: Queue,
+    // @InjectQueue('notifications') private readonly notificationQueue: Queue,
   ) {}
 
   async scheduleNotification(dto: ScheduleNotificationDto) {
@@ -86,25 +86,25 @@ export class NotificationsService {
         deliveries.push(delivery);
 
         // Add job to queue
-        await this.notificationQueue.add(
-          'send-notification',
-          {
-            deliveryId: delivery.id,
-            userId: dto.userId,
-            channel,
-            title: dto.title,
-            body: dto.body,
-            phoneNumber: user.phone,
-          },
-          {
-            delay: dto.scheduledAt.getTime() - Date.now(),
-            attempts: 3,
-            backoff: {
-              type: 'exponential',
-              delay: 2000,
-            },
-          },
-        );
+        // await this.notificationQueue.add(
+        //   'send-notification',
+        //   {
+        //     deliveryId: delivery.id,
+        //     userId: dto.userId,
+        //     channel,
+        //     title: dto.title,
+        //     body: dto.body,
+        //     phoneNumber: user.phone,
+        //   },
+        //   {
+        //     delay: dto.scheduledAt.getTime() - Date.now(),
+        //     attempts: 3,
+        //     backoff: {
+        //       type: 'exponential',
+        //       delay: 2000,
+        //     },
+        //   },
+        // );
       }
 
       this.logger.log(`Scheduled ${deliveries.length} notifications for reminder ${dto.reminderId}`);
