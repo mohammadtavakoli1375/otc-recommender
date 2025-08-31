@@ -31,6 +31,9 @@ async function bootstrapServer() {
 
   // Debug ping route
   expressApp.get('/__ping', (_req, res) => res.status(200).send('ok'));
+  
+  // Root health check
+  expressApp.get('/', (_req, res) => res.status(200).send('API is up'));
 
   await app.init();
   
