@@ -10,7 +10,8 @@
     "test": "playwright test",
     "test:ui": "playwright test --ui",
     "test:headed": "playwright test --headed",
-    "pwa:bump": "node -e \"const fs=require('fs');let t=fs.readFileSync('public/sw.js','utf8');t=t.replace(/v\\d{4}-\\d{2}-\\d{2}-\\d{2}/,`v${new Date().toISOString().slice(0,10).replace(/-/g,'-')}-01`);fs.writeFileSync('public/sw.js',t);console.log('SW VERSION bumped')\""
+    "pwa:bump": "node -e \"const fs=require('fs');let t=fs.readFileSync('public/sw.js','utf8');t=t.replace(/v\\d{4}-\\d{2}-\\d{2}-\\d{2}/,`v${new Date().toISOString().slice(0,10).replace(/-/g,'-')}-01`);fs.writeFileSync('public/sw.js',t);console.log('SW VERSION bumped')\"",
+    "vercel-build": "prisma generate && next build"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.1",
