@@ -48,6 +48,7 @@ frontend/src/
 │   │   ├── auth/
 │   │   ├── dose-calculator/
 │   │   ├── education/
+│   │   ├── neshan-search/      # نشان API پروکسی با timeout
 │   │   └── profile/
 │   ├── auth/                   # Authentication Pages
 │   │   ├── login/
@@ -590,8 +591,10 @@ POST   /medications/adherence/:adherenceId/mark # ثبت مصرف دارو
 
 ### Maps APIs (جدید)
 ```
-GET    /maps/nearby                       # جستجوی داروخانه‌های اطراف
+GET    /maps/nearby                       # جستجوی داروخانه‌های اطراف (Backend)
+GET    /api/neshan-search                 # پروکسی نشان API (Frontend)
 # Query Parameters:
+#   - q: string (optional) - جستجوی متنی (مثل "pharmacy")
 #   - lat: number (required) - عرض جغرافیایی
 #   - lng: number (required) - طول جغرافیایی
 #   - radius: number (optional, default: 100000) - شعاع جستجو به متر
@@ -614,6 +617,13 @@ GET    /maps/nearby                       # جستجوی داروخانه‌ها
 #     "radius": 100000
 #   }
 # }
+
+# Neshan API Proxy Features:
+# - Server-side API key injection
+# - 15s timeout management
+# - Error handling و retry logic
+# - Cache: no-store برای real-time data
+# - Security: API key محافظت شده
 ```
 
 ---
@@ -881,10 +891,14 @@ npx prisma studio          # Prisma Studio (Port 5555)
 - ✅ **Backend API**: `/api/*` routes فعال در Vercel Functions
 - ✅ **Frontend**: Next.js 15.4.7 با Turbopack در Vercel Edge
 - ✅ **Local Development**: Backend روی پورت 3001، Frontend روی پورت 3000
-- ✅ **Database**: SQLite embedded در production
+- ✅ **Database**: PostgreSQL (Neon) با connection pooling
 - ✅ **Health Checks**: `/api/__ping` و `/api/` endpoints فعال
 - ✅ **PWA**: Service Worker و Manifest فعال
-- ✅ **Push Notifications**: VAPID keys تنظیم شده
+- ✅ **Push Notifications**: VAPID keys تولید و آماده
+- ✅ **Neshan API Proxy**: `/api/neshan-search` با timeout management
+- ✅ **Security Keys**: JWT و VAPID keys تولید شده
+- ✅ **Static Assets**: favicon.ico بهینه‌سازی شده
+- ✅ **Vercel Config**: مینیمال برای auto-detection
 - ✅ **Enhanced Auth Buttons**: طراحی مدرن با گرادیانت فعال
 - ✅ **Interactive Loading States**: انیمیشن‌های spinner کامل
 - ✅ **Scale Animations**: hover و active effects پیاده‌سازی شده
@@ -1222,6 +1236,11 @@ pg_restore -h localhost -U otc_user -d otc_dev --clean --create backups/backup.d
 - ✅ منوی همبرگری مدرن با انیمیشن‌های پیشرفته
 - ✅ طراحی کارت‌های خدمات بهبود یافته
 - ✅ UI/UX components با تعامل‌های روان
+- ✅ API پروکسی نشان با timeout management
+- ✅ کلیدهای امنیتی تولید شده (JWT + VAPID)
+- ✅ Static assets بهینه‌سازی شده (favicon.ico)
+- ✅ Vercel config مینیمال برای auto-detection
+- ✅ PostgreSQL migration کامل با Neon
 - ✅ امنیت و عملکرد بهینه‌سازی شده
 - ✅ مستندات کامل و به‌روز
 - ✅ CI/CD Pipeline راه‌اندازی شده
@@ -1236,8 +1255,8 @@ pg_restore -h localhost -U otc_user -d otc_dev --clean --create backups/backup.d
 ---
 
 **تاریخ گزارش:** 31 اوت 2025
-**نسخه:** 1.5.0
-**وضعیت:** Production Deployed & Live on Vercel
-**آخرین به‌روزرسانی:** Deploy موفق در Vercel با Full-Stack Architecture
+**نسخه:** 1.6.0
+**وضعیت:** Production Optimized & Security Enhanced
+**آخرین به‌روزرسانی:** API پروکسی نشان، کلیدهای امنیتی و بهینه‌سازی Vercel
 
 *این گزارش شامل تمام جنبه‌های فنی، معماری، و تجاری پروژه OTC Recommender می‌باشد و برای ارزیابی جامع توسط تیم‌های فنی و تجاری طراحی شده است.*
