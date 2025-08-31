@@ -1,15 +1,15 @@
 import 'reflect-metadata';
 import express from 'express';
-import { Handler } from '@vercel/node';
+import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { NestFactory } from '@nestjs/core';
 import { ExpressAdapter } from '@nestjs/platform-express';
 import { AppModule } from '../src/app.module';
 
 const serverless = require('serverless-http');
 
-let cachedServer: Handler;
+let cachedServer: any;
 
-async function createServer(): Promise<Handler> {
+async function bootstrapServer() {
   const expressApp = express();
   
   const app = await NestFactory.create(
@@ -17,7 +17,6 @@ async function createServer(): Promise<Handler> {
     new ExpressAdapter(expressApp),
     {
       logger: ['error', 'warn', 'log'],
-      cors: false // We'll handle CORS manually
     }
   );
 
@@ -37,11 +36,9 @@ async function createServer(): Promise<Handler> {
   });
 }
 
-const handler: Handler = async (req, res) => {
+export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!cachedServer) {
-    cachedServer = await createServer();
+    cachedServer = await bootstrapServer();
   }
   return cachedServer(req, res);
-};
-
-export default handler;
+}
