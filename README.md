@@ -21,20 +21,21 @@
 ### Backend
 - **Framework:** NestJS
 - **Language:** TypeScript
-- **Database:** PostgreSQL 16 (مهاجرت شده از SQLite)
-- **ORM:** Prisma
+- **Database:** PostgreSQL (Neon/Vercel Postgres)
+- **ORM:** Prisma with Singleton Pattern
 - **Cache:** Redis
 - **Queue:** BullMQ (برای اعلانات)
 - **Push Notifications:** Web Push با VAPID
 - **SMS:** Kavenegar API
 - **Security:** Helmet + Rate Limiting + CORS
 - **Validation:** class-validator
+- **Error Handling:** Comprehensive DB connection error handling
 
 ### DevOps
 - **CI/CD:** GitHub Actions
 - **Testing:** Jest + Playwright
-- **Monitoring:** Sentry + OpenTelemetry
-- **Deployment:** Vercel (Frontend) + Render/Railway (Backend)
+- **Monitoring:** Vercel Analytics + Error Tracking
+- **Deployment:** Vercel Full-Stack (Frontend + Backend Serverless)
 
 ## 🚀 راه‌اندازی محیط توسعه
 
@@ -399,6 +400,66 @@ NODE_ENV=production
 npm run build
 npm run start:prod
 ```
+
+## 🚀 استقرار در Production (Vercel)
+
+### پیش‌نیازها
+- حساب کاربری Vercel
+- دیتابیس PostgreSQL (توصیه: Neon یا Vercel Postgres)
+- متغیرهای محیطی تنظیم شده
+
+### مراحل استقرار
+
+1. **تنظیم دیتابیس PostgreSQL:**
+   ```bash
+   # ایجاد دیتابیس در Neon یا Vercel Postgres
+   # دریافت CONNECTION_STRING
+   ```
+
+2. **تنظیم متغیرهای محیطی در Vercel:**
+   ```bash
+   DATABASE_URL="postgresql://username:password@hostname:5432/database?sslmode=require"
+   JWT_SECRET="your-super-secret-jwt-key"
+   VAPID_PUBLIC_KEY="your-vapid-public-key"
+   VAPID_PRIVATE_KEY="your-vapid-private-key"
+   # سایر متغیرها طبق .env.example
+   ```
+
+3. **Deploy در Vercel:**
+   ```bash
+   # نصب Vercel CLI
+   npm i -g vercel
+   
+   # Login و Deploy
+   vercel login
+   vercel --prod
+   ```
+
+4. **تأیید عملکرد:**
+   ```bash
+   # تست Health Check
+   curl https://your-app.vercel.app/api/__ping
+   # Expected: "ok"
+   
+   curl https://your-app.vercel.app/api/
+   # Expected: "API is up"
+   ```
+
+### ویژگی‌های Vercel Deployment
+- ✅ **Full-Stack**: Frontend + Backend یکپارچه
+- ✅ **Serverless Functions**: Auto-scaling
+- ✅ **PostgreSQL**: Singleton connection pattern
+- ✅ **Error Handling**: Comprehensive DB error management
+- ✅ **HTTPS**: SSL/TLS خودکار
+- ✅ **Global CDN**: سرعت بالا در سراسر جهان
+- ✅ **Zero Downtime**: استقرار بدون قطعی
+
+### نکات مهم
+- 🔒 **امنیت**: هرگز DATABASE_URL واقعی را در کد commit نکنید
+- 📊 **Monitoring**: از Vercel Analytics برای نظارت استفاده کنید
+- 🔄 **Auto Deploy**: هر push به main branch خودکار deploy می‌شود
+- 💾 **Singleton Pattern**: PrismaClient به صورت singleton استفاده می‌شود
+- ⚡ **Performance**: Connection pooling و error handling بهینه
 
 ## 🤝 مشارکت در پروژه
 

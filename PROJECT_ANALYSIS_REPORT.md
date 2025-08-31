@@ -830,9 +830,31 @@ jobs:
 
 ## 🚀 استقرار و DevOps
 
+### ✅ Production Environment (Vercel)
+```bash
+# 🌐 Live Production URL
+https://otc-recommender-d6fvzyjss-mtpharma93-2893s-projects.vercel.app
+
+# 🧪 Health Check Endpoints
+curl https://otc-recommender-d6fvzyjss-mtpharma93-2893s-projects.vercel.app/api/__ping
+# Expected: "ok"
+
+curl https://otc-recommender-d6fvzyjss-mtpharma93-2893s-projects.vercel.app/api/
+# Expected: "API is up"
+
+# 📱 PWA Installation
+# موبایل: "Add to Home Screen"
+# دسکتاپ: آیکون نصب در آدرس بار
+
+# 🔧 Vercel CLI Management
+vercel --prod              # Deploy to production
+vercel logs               # View runtime logs
+vercel env ls             # List environment variables
+```
+
 ### Development Environment
 ```bash
-# Start PostgreSQL & pgAdmin with Docker
+# Start PostgreSQL & pgAdmin with Docker (Optional)
 docker-compose up -d
 
 # Backend Setup & Start (Port 3001) ✅ RUNNING
@@ -854,9 +876,15 @@ npx prisma studio          # Prisma Studio (Port 5555)
 # pgAdmin: http://localhost:5050 (admin@example.com / admin123)
 ```
 
-### Current Status (31 اوت 2025)
-- ✅ **Backend Server**: در حال اجرا روی پورت 3001
-- ✅ **Frontend Server**: در حال اجرا روی پورت 3000
+### ✅ Current Status (31 اوت 2025)
+- 🌐 **Production Live**: `https://otc-recommender-d6fvzyjss-mtpharma93-2893s-projects.vercel.app`
+- ✅ **Backend API**: `/api/*` routes فعال در Vercel Functions
+- ✅ **Frontend**: Next.js 15.4.7 با Turbopack در Vercel Edge
+- ✅ **Local Development**: Backend روی پورت 3001، Frontend روی پورت 3000
+- ✅ **Database**: SQLite embedded در production
+- ✅ **Health Checks**: `/api/__ping` و `/api/` endpoints فعال
+- ✅ **PWA**: Service Worker و Manifest فعال
+- ✅ **Push Notifications**: VAPID keys تنظیم شده
 - ✅ **Enhanced Auth Buttons**: طراحی مدرن با گرادیانت فعال
 - ✅ **Interactive Loading States**: انیمیشن‌های spinner کامل
 - ✅ **Scale Animations**: hover و active effects پیاده‌سازی شده
@@ -866,13 +894,19 @@ npx prisma studio          # Prisma Studio (Port 5555)
 - ✅ **Geographic Detection**: تشخیص خودکار محدوده ایران
 - ✅ **Fallback Strategy**: پشتیبانی کاربران خارج از ایران
 
-### Production Deployment
-- **Docker Containerization**
-- **Environment Variables**
-- **Database Migrations**
-- **SSL/TLS Configuration**
-- **Load Balancing**
-- **Monitoring & Logging**
+### ✅ Production Deployment (Vercel)
+- **✅ Deployed**: `https://otc-recommender-d6fvzyjss-mtpharma93-2893s-projects.vercel.app`
+- **✅ Full-Stack**: Frontend (Next.js) + Backend (NestJS) یکپارچه
+- **✅ Serverless Functions**: Backend API در Vercel Functions
+- **✅ SQLite Database**: Embedded database بدون external dependencies
+- **✅ Environment Variables**: تنظیمات production در Vercel
+- **✅ SSL/TLS**: HTTPS خودکار Vercel
+- **✅ Global CDN**: توزیع محتوا در سراسر جهان
+- **✅ Auto Scaling**: مقیاس‌پذیری خودکار بر اساس ترافیک
+- **✅ Zero Downtime**: استقرار بدون قطعی سرویس
+- **✅ Git Integration**: Auto-deploy از GitHub
+- **✅ Performance Monitoring**: نظارت عملکرد Vercel Analytics
+- **✅ Error Tracking**: ردیابی خطاها در Real-time
 
 ### Environment Configuration
 
@@ -1147,7 +1181,15 @@ pg_restore -h localhost -U otc_user -d otc_dev --clean --create backups/backup.d
 ✅ **Health monitoring و نظارت سیستم**
 ✅ **محیط‌های توسعه جداگانه**
 
-### آماده برای Production
+### ✅ Production Deployed Successfully
+- 🌐 **Live URL**: `https://otc-recommender-d6fvzyjss-mtpharma93-2893s-projects.vercel.app`
+- 🚀 **Vercel Full-Stack Deploy**: Frontend + Backend یکپارچه
+- 💰 **کاملاً رایگان**: $0 هزینه ماهانه با Vercel Free Tier
+- 🔧 **SQLite Database**: Embedded database بدون نیاز به external DB
+- ⚡ **Auto Scaling**: مقیاس‌پذیری خودکار Vercel
+- 🔒 **HTTPS**: امنیت کامل با SSL/TLS خودکار
+- 🌍 **Global CDN**: دسترسی سریع از سراسر جهان
+- 📱 **PWA Ready**: قابل نصب روی موبایل و دسکتاپ
 - ✅ تمام قابلیت‌های اصلی پیاده‌سازی شده
 - ✅ سیستم اعلانات کامل (Push + SMS + OTP)
 - ✅ سیستم مدیریت داروهای شخصی کامل
@@ -1194,8 +1236,8 @@ pg_restore -h localhost -U otc_user -d otc_dev --clean --create backups/backup.d
 ---
 
 **تاریخ گزارش:** 31 اوت 2025
-**نسخه:** 1.4.0
-**وضعیت:** Production Ready & Fully Operational
-**آخرین به‌روزرسانی:** بهبود UI/UX و منوی همبرگری مدرن
+**نسخه:** 1.5.0
+**وضعیت:** Production Deployed & Live on Vercel
+**آخرین به‌روزرسانی:** Deploy موفق در Vercel با Full-Stack Architecture
 
 *این گزارش شامل تمام جنبه‌های فنی، معماری، و تجاری پروژه OTC Recommender می‌باشد و برای ارزیابی جامع توسط تیم‌های فنی و تجاری طراحی شده است.*
